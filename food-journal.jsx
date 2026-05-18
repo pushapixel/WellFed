@@ -7,8 +7,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 // ── ⚙️ CONFIG ─────────────────────────────────────────────────────────────────
-const API              = "https://your-api.up.railway.app";
-const GOOGLE_CLIENT_ID = "YOUR_CLIENT_ID.apps.googleusercontent.com";
+const API              = "https://wellfed.up.railway.app";
+const GOOGLE_CLIENT_ID = "168274465421-7rj5j39seagomfan2jh3lq655ft52cib.apps.googleusercontent.com";
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 let _token = null;
