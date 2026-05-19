@@ -431,9 +431,16 @@ function FoodInput({knownFoods,onAdd,sessionFoods,t}){
 }
 
 // ── Meal card ─────────────────────────────────────────────────────────────────
-function MealCard({session,onEdit,t}){
+function MealCard({session,onEdit,onDelete,t}){
   const pending=!session.rating&&!session.symptoms?.length;
   const leftColor = pending ? "#C67D20" : session.rating ? ratingColor(session.rating,t) : t.border;
+  const [confirming,setConfirming]=useState(false);
+
+  const handleDelete=async()=>{
+    if(!confirming){setConfirming(true);setTimeout(()=>setConfirming(false),3000);return;}
+    await onDelete(session.id);
+  };
+
   return(
     <div style={{background:t.surface,borderRadius:14,padding:"12px 14px",
       boxShadow:t.shadow,border:`1px solid ${pending?t.amberSoft:t.border}`,marginBottom:10,
@@ -444,12 +451,24 @@ function MealCard({session,onEdit,t}){
             fontFamily:"'Lora','Georgia',serif"}}>{fmtTime(session.ts)}</span>
           {!isToday(session.ts)&&<span style={{fontSize:11,color:t.textMuted}}>{fmtDate(session.ts)}</span>}
         </div>
-        <button onClick={()=>onEdit(session)} style={{
-          background:t.accentSoft,border:`1px solid ${t.accentBorder}`,
-          borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,color:t.accent,
-          cursor:"pointer",fontFamily:"inherit"}}>
-          {pending?"Rate now ✦":"Edit"}
-        </button>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {/* Trash — tap once to arm, tap again to confirm */}
+          <button onClick={handleDelete} title={confirming?"Tap again to delete":"Delete meal"}
+            style={{background:confirming?t.redSoft:"none",
+              border:`1px solid ${confirming?t.redBorder:"transparent"}`,
+              borderRadius:8,padding:"4px 8px",cursor:"pointer",
+              color:confirming?t.red:t.textMuted,fontSize:15,lineHeight:1,
+              transition:"all .2s",display:"flex",alignItems:"center",gap:4}}>
+            🗑
+            {confirming&&<span style={{fontSize:11,fontWeight:700,fontFamily:"inherit"}}>Delete?</span>}
+          </button>
+          <button onClick={()=>onEdit(session)} style={{
+            background:t.accentSoft,border:`1px solid ${t.accentBorder}`,
+            borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,color:t.accent,
+            cursor:"pointer",fontFamily:"inherit"}}>
+            {pending?"Rate now ✦":"Edit"}
+          </button>
+        </div>
       </div>
       <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
         {session.foods.map(f=><FoodTag key={f} name={f} t={t}/>)}
@@ -476,7 +495,7 @@ function MealCard({session,onEdit,t}){
 }
 
 // ── Log Page ──────────────────────────────────────────────────────────────────
-function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onAddFood,onAddSymptom,t}){
+function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDeleteMeal,onAddFood,onAddSymptom,t}){
   const [mealFoods,setMealFoods]=useState([]);
   const [saving,setSaving]=useState(false);
   const [saved,setSaved]=useState(false);
@@ -543,7 +562,7 @@ function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onAddF
           <div style={{fontSize:11,fontWeight:700,color:t.textSub,textTransform:"uppercase",
             letterSpacing:"0.06em",marginBottom:8}}>Today's meals</div>
           {todaySessions.map(s=>(
-            <MealCard key={s.id} session={s} onEdit={setEditSession} t={t}/>
+            <MealCard key={s.id} session={s} onEdit={setEditSession} onDelete={onDeleteMeal} t={t}/>
           ))}
         </>
       )}
@@ -976,7 +995,10 @@ export default function App(){
     setSessions(prev=>[meal,...prev]);
   },[]);
 
-  const updateMeal=useCallback(async updated=>{
+  const deleteMeal=useCallback(async id=>{
+    await apiFetch(`/meals/${id}`,{method:"DELETE"});
+    setSessions(prev=>prev.filter(s=>s.id!==id));
+  },[]);
     const meal=await apiPatch(`/meals/${updated.id}`,{rating:updated.rating,symptoms:updated.symptoms});
     setSessions(prev=>prev.map(s=>s.id===meal.id?meal:s));
   },[]);
@@ -1032,7 +1054,7 @@ export default function App(){
       {/* Page content */}
       <div style={{padding:"12px 12px 0"}}>
         {tab==="log"&&<LogPage sessions={sessions} knownFoods={knownFoods} allSymptoms={allSymptoms}
-          onSaveMeal={saveMeal} onUpdateMeal={updateMeal} onAddFood={addFood} onAddSymptom={addSymptom} t={t}/>}
+          onSaveMeal={saveMeal} onUpdateMeal={updateMeal} onDeleteMeal={deleteMeal} onAddFood={addFood} onAddSymptom={addSymptom} t={t}/>}
         {tab==="analysis"&&<AnalysisPage sessions={sessions} t={t}/>}
         {tab==="settings"&&<SettingsPage darkMode={darkMode} onToggle={toggleDark} user={user} onSignOut={handleSignOut} t={t}/>}
       </div>
