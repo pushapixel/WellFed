@@ -326,12 +326,22 @@ function RateModal({session,onSave,onClose,allSymptoms,onAddSymptom,t}){
     onClose();
   };
 
+  // Lock body scroll while modal is open
+  useEffect(()=>{
+    const prev=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    return()=>{document.body.style.overflow=prev;};
+  },[]);
+
   return(
     <div style={{position:"fixed",inset:0,background:t.overlay,zIndex:1000,
-      display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+      overflowY:"auto",WebkitOverflowScrolling:"touch"}}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{background:t.surface,borderRadius:"20px 20px 0 0",padding:"20px 16px 32px",
-        width:"100%",maxWidth:600,boxShadow:t.shadowModal,maxHeight:"90vh",overflowY:"auto"}}>
+      {/* Spacer so tapping the dark area above closes the modal */}
+      <div style={{minHeight:"20vh"}} onClick={onClose}/>
+      <div style={{background:t.surface,borderRadius:"20px 20px 0 0",
+        padding:"20px 16px 40px",width:"100%",maxWidth:600,
+        margin:"0 auto",boxShadow:t.shadowModal,position:"relative"}}>
         <div style={{width:40,height:4,background:t.border,borderRadius:2,margin:"0 auto 16px"}}/>
         <div style={{fontSize:13,fontWeight:700,color:t.textSub,textTransform:"uppercase",
           letterSpacing:"0.06em",marginBottom:4}}>How did you feel?</div>
@@ -345,20 +355,21 @@ function RateModal({session,onSave,onClose,allSymptoms,onAddSymptom,t}){
             {rating>0&&<span style={{fontSize:13,color:t.textSub}}>{ratingLabel(rating)}</span>}
           </div>
         </div>
-        <div style={{marginBottom:20}}>
+        <div style={{marginBottom:24}}>
           <div style={{fontSize:12,fontWeight:600,color:t.textSub,marginBottom:8}}>
             Symptoms <span style={{fontWeight:400,color:t.textMuted}}>(none = feeling fine)</span>
           </div>
           <SymptomSelector selected={symptoms} onChange={setSymptoms}
             allSymptoms={allSymptoms} onAddSymptom={onAddSymptom} t={t}/>
         </div>
+        {/* Buttons always visible — not clipped */}
         <div style={{display:"flex",gap:8}}>
           <button onClick={onClose} style={{flex:1,background:t.surface2,border:`1px solid ${t.border}`,
-            borderRadius:10,padding:"11px",fontWeight:700,cursor:"pointer",fontSize:13,
+            borderRadius:10,padding:"13px",fontWeight:700,cursor:"pointer",fontSize:13,
             color:t.textSub,fontFamily:"inherit"}}>Cancel</button>
           <button onClick={handleSave} disabled={saving} style={{flex:2,
             background:rating>0?`linear-gradient(135deg,#D85A30,#993C1D)`:t.surface2,
-            border:`1px solid ${rating>0?"#D85A30":t.border}`,borderRadius:10,padding:"11px",
+            border:`1px solid ${rating>0?"#D85A30":t.border}`,borderRadius:10,padding:"13px",
             fontWeight:700,cursor:"pointer",fontSize:13,
             color:rating>0?"#fff":t.textMuted,fontFamily:"inherit",opacity:saving?.6:1}}>
             {saving?"Saving…":rating>0?"Save rating & symptoms":"Save (no rating)"}
@@ -744,19 +755,6 @@ function AnalysisPage({sessions,t}){
             </table>
           </div>
         </div>
-        {foodStats.filter(f=>f.avg<3&&f.count>=2).length>0&&(
-          <div style={{...card,borderLeft:`3px solid ${t.red}`}}>
-            <div style={{...sec,color:t.red}}>🚨 Possible culprits</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-              {foodStats.filter(f=>f.avg<3&&f.count>=2).sort((a,b)=>a.avg-b.avg).map(f=>(
-                <div key={f.name} style={{background:t.redSoft,border:`1px solid ${t.redBorder}`,borderRadius:20,
-                  padding:"4px 12px",fontSize:12,color:t.redText,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
-                  {f.name} <span>{f.avg}★</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
         {foodStats.filter(f=>f.avg>=4&&f.count>=2).length>0&&(
           <div style={{...card,borderLeft:`3px solid ${t.green}`}}>
             <div style={{...sec,color:t.green}}>✅ Foods you tolerate well</div>
@@ -765,6 +763,23 @@ function AnalysisPage({sessions,t}){
                 <div key={f.name} style={{background:t.greenSoft,border:`1px solid ${t.greenBorder}`,borderRadius:20,
                   padding:"4px 12px",fontSize:12,color:t.greenText,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
                   {f.name} <span>{f.avg}★</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {foodStats.filter(f=>f.avg<3&&f.count>=2).length>0&&(
+          <div style={{...card,borderLeft:`3px solid ${t.red}`}}>
+            <div style={{...sec,color:t.red}}>❌ Foods you do not tolerate well</div>
+            <p style={{fontSize:12,color:t.textMuted,marginBottom:10}}>
+              You've felt bad after eating these multiple times.
+            </p>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {foodStats.filter(f=>f.avg<3&&f.count>=2).sort((a,b)=>a.avg-b.avg).map(f=>(
+                <div key={f.name} style={{background:t.redSoft,border:`1px solid ${t.redBorder}`,borderRadius:20,
+                  padding:"4px 12px",fontSize:12,color:t.redText,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
+                  {f.name} <span>{f.avg}★</span>
+                  <span style={{fontSize:10,fontWeight:400,color:t.textMuted}}>{f.count} meals</span>
                 </div>
               ))}
             </div>
