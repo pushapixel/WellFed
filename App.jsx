@@ -10,7 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 // API is same-origin (Railway serves both frontend and API), so no base URL needed.
 // Just replace GOOGLE_CLIENT_ID with yours from Google Cloud Console.
 const API              = "";
-const GOOGLE_CLIENT_ID = "168274465421-7rj5j39seagomfan2jh3lq655ft52cib.apps.googleusercontent.com"; // ← replace this
+const GOOGLE_CLIENT_ID = "YOUR_CLIENT_ID.apps.googleusercontent.com"; // ← replace this
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 let _token = null;
@@ -44,106 +44,109 @@ function similarity(a,b){
   return m/lo.length;
 }
 
-// ── Brand palette (extracted from SVG assets) ─────────────────────────────────
+// ── Fonts ─────────────────────────────────────────────────────────────────────
+// Lora (serif) — headings, big numbers, logo wordmark
+// Nunito (sans) — all UI text, labels, buttons, body
+// Loaded via index.html <link> tag
+
+const FONT_DISPLAY = "'Lora', Georgia, serif";
+const FONT_UI      = "'Nunito', 'Helvetica Neue', Arial, sans-serif";
+
+// ── 4C Sage & Stone palette ───────────────────────────────────────────────────
 //
-//  #D85A30  brand orange  (icon bg, primary accent)
-//  #F0997B  peach         (light accent, highlights)
-//  #712B13  deep brown    (dark text, dark mode mid)
-//  #993C1D  mid brown     (secondary text on dark, borders)
-//  #4A1B0C  darkest brown (dark mode bg)
-//  #FAECE7  warm cream    (light mode bg, light text on dark)
-//  #FDF3EF  lightest cream(light mode surface)
+// Light: cool blue-teal sage, warm slate stone, terracotta accent
+// Dark:  deep slate-teal bg, desaturated mid tones, same terracotta pop
 
 const LIGHT = {
-  // Backgrounds
-  bg:           "#FDF3EF",   // warmest cream — page bg
-  surface:      "#FFFFFF",   // pure white cards
-  surface2:     "#FDF3EF",   // cream — alternate rows, sub-surfaces
+  // Backgrounds — cool sage tints
+  bg:           "#F1F4F4",   // very light blue-teal tint
+  surface:      "#FFFFFF",
+  surface2:     "#EBF0EF",   // slightly deeper sage tint for alt rows
   // Borders
-  border:       "#F0D5C8",   // peach-tinted border
+  border:       "#C2D4D0",   // sage-teal border
   // Text
-  text:         "#2C0F06",   // near-black warm
-  textSub:      "#712B13",   // deep brown
-  textMuted:    "#B06A4E",   // muted warm brown
-  // Accent (brand orange)
+  text:         "#0F2422",   // near-black with teal undertone
+  textSub:      "#2E6058",   // deep teal
+  textMuted:    "#5A8078",   // muted teal
+  // Accent — terracotta (brand orange, unchanged)
   accent:       "#D85A30",
-  accentSoft:   "#FEF0EB",
-  accentBorder: "#F0997B",
-  // Food tags — warm amber
-  tagBg:        "#FEF0EB",
-  tagBorder:    "#F0997B",
-  tagText:      "#712B13",
-  // Symptom pills — burgundy-red
-  symBg:        "#FEE8E0",
-  symBorder:    "#E8856A",
+  accentSoft:   "#FEF0E6",
+  accentBorder: "#F0B090",
+  // Food tags — sage teal
+  tagBg:        "#D8E6E2",
+  tagBorder:    "#8ABCB4",
+  tagText:      "#162624",
+  // Symptom pills — terracotta-tinted
+  symBg:        "#FEE8D6",
+  symBorder:    "#E8956A",
   symText:      "#5C1A0A",
   symSelBg:     "#D85A30",
   symSelText:   "#FFFFFF",
   symSelBorder: "#B84820",
   // Semantic
-  green:        "#2D8A5E",
-  greenSoft:    "#E8F5EE",
-  greenBorder:  "#7ECAA0",
-  greenText:    "#1A5C3A",
-  amber:        "#C67D20",
+  green:        "#2E7D5A",
+  greenSoft:    "#E2F2EA",
+  greenBorder:  "#7EC4A0",
+  greenText:    "#1A4D36",
+  amber:        "#B87820",
   amberSoft:    "#FEF3DC",
-  red:          "#C0392B",
+  red:          "#B83830",
   redSoft:      "#FDEDED",
-  redBorder:    "#E8856A",
-  redText:      "#7A1B10",
+  redBorder:    "#E88080",
+  redText:      "#6A1810",
   // Inputs
   inputBg:      "#FFFFFF",
-  overlay:      "rgba(44,15,6,0.45)",
-  // Shadows
-  shadow:       "0 2px 12px rgba(113,43,19,0.10)",
-  shadowHdr:    "0 2px 16px rgba(113,43,19,0.12)",
-  shadowModal:  "0 24px 60px rgba(44,15,6,0.22)",
+  overlay:      "rgba(15,36,34,0.45)",
+  // Shadows — teal-tinted
+  shadow:       "0 2px 12px rgba(46,96,88,0.10)",
+  shadowHdr:    "0 2px 16px rgba(46,96,88,0.12)",
+  shadowModal:  "0 24px 60px rgba(15,36,34,0.22)",
 };
 
 const DARK = {
-  // Backgrounds
-  bg:           "#2C0F06",   // near-black brown
-  surface:      "#3D1A0A",   // dark brown card
-  surface2:     "#4A1B0C",   // slightly lighter — alt rows
+  // Backgrounds — deep slate-teal, noticeably darker than before
+  bg:           "#0A1614",   // near-black with deep teal cast
+  surface:      "#112220",   // dark teal-slate card
+  surface2:     "#162E2A",   // slightly lighter for alt rows
   // Borders
-  border:       "#6B2E14",   // mid-brown border
+  border:       "#244440",   // muted teal border
   // Text
-  text:         "#FAECE7",   // warm cream
-  textSub:      "#F0997B",   // peach
-  textMuted:    "#A0604A",   // muted brown-peach
-  // Accent
-  accent:       "#F0997B",   // peach as accent on dark
-  accentSoft:   "#4A1B0C",
-  accentBorder: "#993C1D",
+  text:         "#D8EEEA",   // cool near-white with teal tint
+  textSub:      "#7ABCB0",   // muted teal
+  textMuted:    "#3A6860",   // dim teal
+  // Accent — terracotta still pops on dark teal
+  accent:       "#F0856A",   // slightly lighter terracotta for dark bg
+  accentSoft:   "#1E1210",
+  accentBorder: "#8C3820",
   // Food tags
-  tagBg:        "#5C2210",
-  tagBorder:    "#993C1D",
-  tagText:      "#F0997B",
+  tagBg:        "#162E2A",
+  tagBorder:    "#2E5C56",
+  tagText:      "#7ABCB0",
   // Symptom pills
-  symBg:        "#4A1B0C",
-  symBorder:    "#993C1D",
-  symText:      "#F0997B",
+  symBg:        "#1E1210",
+  symBorder:    "#6A3020",
+  symText:      "#F0856A",
   symSelBg:     "#D85A30",
   symSelText:   "#FFFFFF",
-  symSelBorder: "#F0997B",
+  symSelBorder: "#F0856A",
   // Semantic
-  green:        "#4DC88A",
-  greenSoft:    "#0D2E1C",
+  green:        "#40C88A",
+  greenSoft:    "#081C14",
   greenBorder:  "#1A5C3A",
   greenText:    "#7ECAA0",
-  amber:        "#E8A93A",
-  amberSoft:    "#2A1A04",
-  red:          "#F07060",
-  redSoft:      "#2C0A08",
-  redBorder:    "#7A1B10",
-  redText:      "#F0997B",
+  amber:        "#D8A040",
+  amberSoft:    "#180E04",
+  red:          "#E06858",
+  redSoft:      "#180808",
+  redBorder:    "#6A2018",
+  redText:      "#F0856A",
   // Inputs
-  inputBg:      "#4A1B0C",
-  overlay:      "rgba(0,0,0,0.65)",
+  inputBg:      "#162E2A",
+  overlay:      "rgba(0,0,0,0.70)",
   // Shadows
-  shadow:       "0 2px 16px rgba(0,0,0,0.5)",
-  shadowHdr:    "0 2px 24px rgba(0,0,0,0.6)",
-  shadowModal:  "0 24px 60px rgba(0,0,0,0.75)",
+  shadow:       "0 2px 16px rgba(0,0,0,0.55)",
+  shadowHdr:    "0 2px 24px rgba(0,0,0,0.65)",
+  shadowModal:  "0 24px 60px rgba(0,0,0,0.80)",
 };
 
 // ── Inline SVG logo (switches per theme) ────────────────────────────────────
@@ -167,8 +170,8 @@ function WellFedLogo({ darkMode, height = 48 }) {
         <line x1="58" y1="53" x2="58" y2="46" stroke="#F0997B" strokeWidth="1.5" strokeLinecap="round"/>
         <line x1="58" y1="53" x2="63" y2="56" stroke="#F0997B" strokeWidth="1.5" strokeLinecap="round"/>
         <circle cx="58" cy="53" r="1.5" fill="#F0997B"/>
-        <text x="90" y="44" fontFamily="Georgia, serif" fontSize="32" fontWeight="700" fill="#FAECE7" letterSpacing="-0.5">WellFed</text>
-        <text x="91" y="62" fontFamily="Arial, sans-serif" fontSize="13" fill="#F0997B" letterSpacing="1.5">FEED WELL. FEEL WELL.</text>
+        <text x="90" y="44" fontFamily="'Lora', Georgia, serif" fontSize="32" fontWeight="700" fill="#D8EEEA" letterSpacing="-0.5">WellFed</text>
+        <text x="91" y="62" fontFamily="'Nunito', Arial, sans-serif" fontSize="13" fill="#7ABCB0" letterSpacing="1.5">FEED WELL. FEEL WELL.</text>
       </svg>
     );
   }
@@ -188,8 +191,8 @@ function WellFedLogo({ darkMode, height = 48 }) {
       <line x1="58" y1="53" x2="58" y2="46" stroke="#712B13" strokeWidth="1.5" strokeLinecap="round"/>
       <line x1="58" y1="53" x2="63" y2="56" stroke="#712B13" strokeWidth="1.5" strokeLinecap="round"/>
       <circle cx="58" cy="53" r="1.5" fill="#712B13"/>
-      <text x="90" y="44" fontFamily="Georgia, serif" fontSize="32" fontWeight="700" fill="#712B13" letterSpacing="-0.5">WellFed</text>
-      <text x="91" y="62" fontFamily="Arial, sans-serif" fontSize="13" fill="#993C1D" letterSpacing="1.5">FEED WELL. FEEL WELL.</text>
+      <text x="90" y="44" fontFamily="'Lora', Georgia, serif" fontSize="32" fontWeight="700" fill="#162624" letterSpacing="-0.5">WellFed</text>
+      <text x="91" y="62" fontFamily="'Nunito', Arial, sans-serif" fontSize="13" fill="#2E6058" letterSpacing="1.5">FEED WELL. FEEL WELL.</text>
     </svg>
   );
 }
@@ -437,8 +440,8 @@ function MealCard({session,onEdit,t}){
       borderLeft:`4px solid ${leftColor}`}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
         <div style={{display:"flex",alignItems:"baseline",gap:6}}>
-          <span style={{fontSize:22,fontWeight:800,color:t.text,letterSpacing:"-0.02em",
-            fontFamily:"Georgia, serif"}}>{fmtTime(session.ts)}</span>
+          <span style={{fontSize:22,fontWeight:700,color:t.text,letterSpacing:"-0.02em",
+            fontFamily:"'Lora','Georgia',serif"}}>{fmtTime(session.ts)}</span>
           {!isToday(session.ts)&&<span style={{fontSize:11,color:t.textMuted}}>{fmtDate(session.ts)}</span>}
         </div>
         <button onClick={()=>onEdit(session)} style={{
@@ -622,7 +625,7 @@ function AnalysisPage({sessions,t}){
   if(!sessions.length) return(
     <div style={{...card,textAlign:"center",padding:"48px 20px"}}>
       <div style={{fontSize:48}}>📊</div>
-      <div style={{marginTop:12,fontSize:15,fontWeight:700,color:t.text,fontFamily:"Georgia,serif"}}>No data yet</div>
+      <div style={{marginTop:12,fontSize:15,fontWeight:700,color:t.text,fontFamily:"'Lora','Georgia',serif"}}>No data yet</div>
       <div style={{fontSize:13,color:t.textMuted,marginTop:4}}>Log meals and rate how you feel to see analysis.</div>
     </div>
   );
@@ -652,7 +655,7 @@ function AnalysisPage({sessions,t}){
         ].map(c=>(
           <div key={c.label} style={{background:t.surface,borderRadius:12,padding:"10px 6px",
             textAlign:"center",boxShadow:t.shadow,border:`1px solid ${t.border}`}}>
-            <div style={{fontSize:22,fontWeight:800,color:c.color,fontFamily:"Georgia,serif"}}>{c.val}</div>
+            <div style={{fontSize:22,fontWeight:700,color:c.color,fontFamily:"'Lora','Georgia',serif"}}>{c.val}</div>
             <div style={{fontSize:10,color:t.textMuted,marginTop:1,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>{c.label}</div>
           </div>
         ))}
@@ -831,7 +834,7 @@ function LoginScreen({onSignIn,darkMode,t}){
   return(
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
       minHeight:"100vh",background:t.bg,padding:32,
-      fontFamily:"'Inter','Helvetica Neue',Arial,sans-serif"}}>
+      fontFamily:"'Nunito','Helvetica Neue',Arial,sans-serif"}}>
       <div style={{
         background:t.surface,borderRadius:24,padding:"44px 32px 36px",
         boxShadow:t.shadowModal,border:`1px solid ${t.border}`,
@@ -981,7 +984,7 @@ export default function App(){
   // Loading
   if(loading) return(
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-      height:"100vh",background:t.bg,fontFamily:"'Inter',sans-serif",gap:16}}>
+      height:"100vh",background:t.bg,fontFamily:"'Nunito',sans-serif",gap:16}}>
       <WellFedIcon size={52}/>
       <div style={{fontSize:13,color:t.textMuted}}>Loading…</div>
     </div>
@@ -993,7 +996,7 @@ export default function App(){
   const TABS=[{id:"log",label:"Log",icon:"📝"},{id:"analysis",label:"Analysis",icon:"📊"},{id:"settings",label:"Settings",icon:"⚙️"}];
 
   return(
-    <div style={{fontFamily:"'Inter','Helvetica Neue',Arial,sans-serif",background:t.bg,minHeight:"100vh",maxWidth:600,margin:"0 auto"}}>
+    <div style={{fontFamily:"'Nunito','Helvetica Neue',Arial,sans-serif",background:t.bg,minHeight:"100vh",maxWidth:600,margin:"0 auto"}}>
       {/* Header */}
       <div style={{background:t.surface,borderBottom:`1px solid ${t.border}`,
         padding:"12px 16px 0",position:"sticky",top:0,zIndex:50,boxShadow:t.shadowHdr}}>
