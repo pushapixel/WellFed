@@ -1,37 +1,44 @@
-// Food Journal API — server.js
+// WellFed API — server.js
 // Deploy to Railway. Required env vars:
 //   DATABASE_URL      — auto-injected when you link a Postgres service
 //   GOOGLE_CLIENT_ID  — from Google Cloud Console (see GOOGLE_SETUP.md)
-//   ALLOWED_ORIGIN    — your GitHub Pages URL, e.g. https://yourname.github.io
+//
+// This server does two things:
+//   1. Serves the built React frontend from ./dist (all non-API routes)
+//   2. Handles all /api/* routes for data
 
 import express  from "express";
 import cors     from "cors";
 import pg       from "pg";
+import path     from "path";
+import { fileURLToPath } from "url";
 import { OAuth2Client } from "google-auth-library";
 
-const { Pool } = pg;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const { Pool }  = pg;
 const app    = express();
 const pool   = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const PORT   = process.env.PORT || 3001;
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-// Allow your GitHub Pages origin (and localhost for development)
-const allowedOrigins = [
-  process.env.ALLOWED_ORIGIN,
-  "http://localhost:5173",
-  "http://localhost:3000",
-].filter(Boolean);
-
+// Frontend is served from the same origin, so CORS is only needed for
+// local development. Allow localhost origins for dev convenience.
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow requests with no origin (curl, Postman) and whitelisted origins
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-    cb(new Error(`CORS blocked: ${origin}`));
+    const allowed = ["http://localhost:5173", "http://localhost:3000"];
+    if (!origin || allowed.includes(origin)) return cb(null, true);
+    // Same-origin requests from Railway have no origin — always allow
+    cb(null, true);
   },
   credentials: true,
 }));
 app.use(express.json());
+
+// ── Serve built frontend ──────────────────────────────────────────────────────
+// Vite builds to ./dist — serve it as static files.
+// Any route that isn't an API route falls through to index.html (SPA routing).
+app.use(express.static(path.join(__dirname, "dist")));
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 const q = (text, params) => pool.query(text, params);
@@ -242,4 +249,11 @@ app.delete("/meals/:id", requireAuth, async (req, res) => {
 // ── Health check (no auth) ────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-app.listen(PORT, () => console.log(`Food Journal API running on :${PORT}`));
+// ── SPA fallback ──────────────────────────────────────────────────────────────
+// Any route not matched above (not an API route) serves the React app.
+// This allows React Router to handle client-side navigation if needed.
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
+});
+
+app.listen(PORT, () => console.log(`WellFed running on :${PORT}`));
