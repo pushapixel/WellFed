@@ -10,7 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 // API is same-origin (Railway serves both frontend and API), so no base URL needed.
 // Just replace GOOGLE_CLIENT_ID with yours from Google Cloud Console.
 const API              = "";
-const GOOGLE_CLIENT_ID = "YOUR_CLIENT_ID.apps.googleusercontent.com"; // ← replace this
+const GOOGLE_CLIENT_ID = "168274465421-7rj5j39seagomfan2jh3lq655ft52cib.apps.googleusercontent.com"; // ← replace this
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 let _token = null;
