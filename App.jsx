@@ -1014,6 +1014,8 @@ export default function App(){
     await apiFetch(`/meals/${id}`,{method:"DELETE"});
     setSessions(prev=>prev.filter(s=>s.id!==id));
   },[]);
+
+  const updateMeal=useCallback(async updated=>{
     const meal=await apiPatch(`/meals/${updated.id}`,{rating:updated.rating,symptoms:updated.symptoms});
     setSessions(prev=>prev.map(s=>s.id===meal.id?meal:s));
   },[]);
