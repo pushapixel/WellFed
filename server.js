@@ -68,7 +68,7 @@ async function requireAuth(req, res, next) {
              email      = EXCLUDED.email,
              name       = EXCLUDED.name,
              avatar_url = EXCLUDED.avatar_url
-       RETURNING id, email, name, avatar_url`,
+       RETURNING id, email, name, avatar_url, admin_yn`,
       [payload.sub, payload.email, payload.name, payload.picture]
     );
     req.user = user;  // available in all route handlers as req.user

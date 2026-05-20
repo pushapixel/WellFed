@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   email      TEXT NOT NULL,
   name       TEXT,
   avatar_url TEXT,
+  admin_yn   BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_seen  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

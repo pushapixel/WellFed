@@ -1068,30 +1068,32 @@ function SettingsPage({darkMode,onToggle,user,onSignOut,suggestions,t}){
         </div>
       </div>
 
-      {/* Suggestions */}
-      <div style={{background:t.surface,borderRadius:14,padding:"16px",boxShadow:t.shadow,border:`1px solid ${t.border}`}}>
-        <div style={{fontSize:12,fontWeight:700,color:t.textSub,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:12}}>
-          💡 Suggestions ({suggestions.length})
-        </div>
-        {suggestions.length===0?(
-          <div style={{fontSize:13,color:t.textMuted,textAlign:"center",padding:"12px 0"}}>
-            No suggestions yet. Use the link on the Log page to submit one.
+      {/* Suggestions — admin only */}
+      {user.admin_yn&&(
+        <div style={{background:t.surface,borderRadius:14,padding:"16px",boxShadow:t.shadow,border:`1px solid ${t.border}`}}>
+          <div style={{fontSize:12,fontWeight:700,color:t.textSub,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:12}}>
+            💡 Suggestions ({suggestions.length})
           </div>
-        ):(
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {suggestions.map((s,i)=>(
-              <div key={i} style={{background:t.surface2,borderRadius:10,padding:"10px 12px",
-                border:`1px solid ${t.border}`}}>
-                <div style={{fontSize:13,color:t.text,lineHeight:1.6,marginBottom:4}}>{s.text}</div>
-                <div style={{fontSize:10,color:t.textMuted,fontWeight:600}}>
-                  {s.name&&<span>{s.name} · </span>}
-                  {new Date(s.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+          {suggestions.length===0?(
+            <div style={{fontSize:13,color:t.textMuted,textAlign:"center",padding:"12px 0"}}>
+              No suggestions yet. Use the link on the Log page to submit one.
+            </div>
+          ):(
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {suggestions.map((s,i)=>(
+                <div key={i} style={{background:t.surface2,borderRadius:10,padding:"10px 12px",
+                  border:`1px solid ${t.border}`}}>
+                  <div style={{fontSize:13,color:t.text,lineHeight:1.6,marginBottom:4}}>{s.text}</div>
+                  <div style={{fontSize:10,color:t.textMuted,fontWeight:600}}>
+                    {s.name&&<span>{s.name} · </span>}
+                    {new Date(s.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
