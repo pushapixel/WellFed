@@ -11,6 +11,7 @@ import express  from "express";
 import cors     from "cors";
 import pg       from "pg";
 import path     from "path";
+import crypto   from "crypto";
 import { fileURLToPath } from "url";
 import { OAuth2Client } from "google-auth-library";
 
@@ -43,23 +44,58 @@ app.use(express.static(path.join(__dirname, "dist")));
 // ── helpers ───────────────────────────────────────────────────────────────────
 const q = (text, params) => pool.query(text, params);
 
+// ── Session helpers ───────────────────────────────────────────────────────────
+const SESSION_DAYS = 30;
+
+function makeSessionToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+async function createSession(userId) {
+  const token = makeSessionToken();
+  const expires = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+  await q(
+    "INSERT INTO sessions (id, user_id, expires_at) VALUES ($1, $2, $3)",
+    [token, userId, expires]
+  );
+  return token;
+}
+
 // ── Auth middleware ───────────────────────────────────────────────────────────
-// Every protected route calls this first.
-// The frontend sends:  Authorization: Bearer <google_id_token>
-// We verify it with Google, then look up (or create) the user row.
+// Accepts: Authorization: Bearer <session_token>  (stored in localStorage, 30d)
+// Falls back to Google ID token verification on first sign-in.
 async function requireAuth(req, res, next) {
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Missing token" });
   }
   const token = header.slice(7);
+
+  // ── Try session token first (64 hex chars) ────────────────────────────────
+  if (/^[0-9a-f]{64}$/.test(token)) {
+    const { rows: [session] } = await q(
+      `SELECT s.id, s.expires_at, u.id AS uid, u.email, u.name, u.avatar_url, u.admin_yn
+       FROM sessions s JOIN users u ON u.id = s.user_id
+       WHERE s.id = $1`,
+      [token]
+    );
+    if (!session) return res.status(401).json({ error: "Invalid session" });
+    if (new Date(session.expires_at) < new Date()) {
+      await q("DELETE FROM sessions WHERE id = $1", [token]);
+      return res.status(401).json({ error: "Session expired" });
+    }
+    req.user = { id: session.uid, email: session.email, name: session.name,
+                 avatar_url: session.avatar_url, admin_yn: session.admin_yn };
+    return next();
+  }
+
+  // ── Fall back to Google ID token (first sign-in) ──────────────────────────
   try {
     const ticket = await client.verifyIdToken({
       idToken:  token,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
-    // Upsert user — creates on first sign-in, updates last_seen every time
     const { rows: [user] } = await q(
       `INSERT INTO users (google_id, email, name, avatar_url, last_seen)
        VALUES ($1, $2, $3, $4, NOW())
@@ -71,7 +107,9 @@ async function requireAuth(req, res, next) {
        RETURNING id, email, name, avatar_url, admin_yn`,
       [payload.sub, payload.email, payload.name, payload.picture]
     );
-    req.user = user;  // available in all route handlers as req.user
+    req.user = user;
+    // Create a 30-day session and attach it so /me can return it
+    req.newSessionToken = await createSession(user.id);
     next();
   } catch (e) {
     console.error("Auth error:", e.message);
@@ -80,9 +118,24 @@ async function requireAuth(req, res, next) {
 }
 
 // ── AUTH — /me ────────────────────────────────────────────────────────────────
-// Frontend calls this on load to confirm the token is valid and get user info
+// First call after Google sign-in: verifies Google token, creates session,
+// returns user + sessionToken so the frontend can store it.
+// Subsequent calls use the session token directly.
 app.get("/me", requireAuth, (req, res) => {
-  res.json(req.user);
+  res.json({
+    ...req.user,
+    // Only included on first sign-in (Google token path)
+    ...(req.newSessionToken ? { sessionToken: req.newSessionToken } : {}),
+  });
+});
+
+// ── DELETE /session — sign out, invalidate session token ─────────────────────
+app.delete("/session", requireAuth, async (req, res) => {
+  const token = req.headers.authorization?.slice(7);
+  if (token && /^[0-9a-f]{64}$/.test(token)) {
+    await q("DELETE FROM sessions WHERE id = $1", [token]);
+  }
+  res.json({ ok: true });
 });
 
 // ── FOODS ─────────────────────────────────────────────────────────────────────

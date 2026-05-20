@@ -12,9 +12,17 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 const API              = "";
 const GOOGLE_CLIENT_ID = "168274465421-7rj5j39seagomfan2jh3lq655ft52cib.apps.googleusercontent.com"; // ← replace this
 
-// ── API helpers ───────────────────────────────────────────────────────────────
-let _token = null;
-const setToken = t => { _token = t; };
+// ── Session token management ──────────────────────────────────────────────────
+// On first Google sign-in, the API returns a 30-day session token.
+// We store it in localStorage so page refreshes don't require re-login.
+const SESSION_KEY = "wf:session";
+let _token = localStorage.getItem(SESSION_KEY) || null;
+
+const setToken = t => {
+  _token = t;
+  if (t) localStorage.setItem(SESSION_KEY, t);
+  else    localStorage.removeItem(SESSION_KEY);
+};
 
 async function apiFetch(path, options = {}) {
   if (!_token) throw new Error("Not authenticated");
@@ -1015,8 +1023,26 @@ function LoginScreen({onSignIn,darkMode,t}){
   );
 }
 
+// ── iOS detection ─────────────────────────────────────────────────────────────
+// True when running in Mobile Safari on iPhone/iPad but NOT already installed
+const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isInStandaloneMode = () =>
+  window.navigator.standalone === true ||
+  window.matchMedia("(display-mode: standalone)").matches;
+const showIosInstall = () => isIos() && !isInStandaloneMode();
+
 // ── Settings Page ─────────────────────────────────────────────────────────────
 function SettingsPage({darkMode,onToggle,user,onSignOut,suggestions,t}){
+  const [iosDismissed,setIosDismissed]=useState(
+    ()=>localStorage.getItem("wf:iosDismissed")==="1"
+  );
+  const showInstall=showIosInstall()&&!iosDismissed;
+
+  const dismissInstall=()=>{
+    localStorage.setItem("wf:iosDismissed","1");
+    setIosDismissed(true);
+  };
+
   return(
     <div style={{padding:"0 0 80px 0"}}>
       {/* Account */}
@@ -1039,6 +1065,36 @@ function SettingsPage({darkMode,onToggle,user,onSignOut,suggestions,t}){
           borderRadius:10,padding:"10px",fontWeight:700,cursor:"pointer",fontSize:13,
           color:t.textSub,fontFamily:"inherit"}}>Sign out</button>
       </div>
+
+      {/* iOS install prompt */}
+      {showInstall&&(
+        <div style={{background:t.surface,borderRadius:14,padding:"16px",boxShadow:t.shadow,
+          border:`2px solid #D85A30`,marginBottom:12,position:"relative"}}>
+          <button onClick={dismissInstall} style={{position:"absolute",top:10,right:12,
+            background:"none",border:"none",cursor:"pointer",fontSize:18,color:t.textMuted,lineHeight:1}}>×</button>
+          <div style={{fontSize:12,fontWeight:700,color:"#D85A30",textTransform:"uppercase",
+            letterSpacing:"0.06em",marginBottom:8}}>📱 Add to Home Screen</div>
+          <div style={{fontSize:13,color:t.text,fontWeight:600,marginBottom:6}}>
+            Install WellFed as an app on your iPhone
+          </div>
+          <div style={{fontSize:13,color:t.textMuted,lineHeight:1.8}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:6}}>
+              <span style={{fontSize:18,flexShrink:0}}>1.</span>
+              <span>Tap the <strong style={{color:t.text}}>Share</strong> button at the bottom of Safari
+                {" "}<span style={{fontSize:16}}>⎋</span>
+              </span>
+            </div>
+            <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:6}}>
+              <span style={{fontSize:18,flexShrink:0}}>2.</span>
+              <span>Scroll down and tap <strong style={{color:t.text}}>"Add to Home Screen"</strong></span>
+            </div>
+            <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+              <span style={{fontSize:18,flexShrink:0}}>3.</span>
+              <span>Tap <strong style={{color:t.text}}>"Add"</strong> — WellFed will appear on your home screen like a native app</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Appearance */}
       <div style={{background:t.surface,borderRadius:14,padding:"16px",boxShadow:t.shadow,border:`1px solid ${t.border}`,marginBottom:12}}>
@@ -1116,30 +1172,50 @@ export default function App(){
   const [loading,setLoading]=useState(false);
   const t=darkMode?DARK:LIGHT;
 
-  const handleCredential=useCallback(async response=>{
+  const loadAppData = useCallback(async () => {
+    const [me, meals, foods, symptoms, suggs] = await Promise.all([
+      apiGet("/me"), apiGet("/meals"), apiGet("/foods"),
+      apiGet("/symptoms"), apiGet("/suggestions"),
+    ]);
+    // On first Google sign-in, /me returns a sessionToken — store it
+    if (me.sessionToken) setToken(me.sessionToken);
+    setUser(me);
+    setSessions(meals);
+    setKnownFoods(foods.map(f => f.name));
+    setAllSymptoms(symptoms.map(s => s.name));
+    setSuggestions(suggs);
+  }, []);
+
+  const handleCredential = useCallback(async response => {
+    // response.credential is a short-lived Google ID token — send it once
+    // to get back our own 30-day session token
     setToken(response.credential);
     setLoading(true);
-    try{
-      const [me,meals,foods,symptoms,suggs]=await Promise.all([
-        apiGet("/me"),apiGet("/meals"),apiGet("/foods"),apiGet("/symptoms"),apiGet("/suggestions"),
-      ]);
-      setUser(me);setSessions(meals);
-      setKnownFoods(foods.map(f=>f.name));
-      setAllSymptoms(symptoms.map(s=>s.name));
-      setSuggestions(suggs);
-    }catch(e){console.error("Login failed:",e);setToken(null);}
-    finally{setLoading(false);}
-  },[]);
+    try { await loadAppData(); }
+    catch(e) { console.error("Login failed:", e); setToken(null); }
+    finally  { setLoading(false); }
+  }, [loadAppData]);
+
+  // On page load — if we have a stored session token, restore the session
+  useEffect(() => {
+    if (!_token) return;
+    setLoading(true);
+    loadAppData()
+      .catch(() => setToken(null))  // session expired or invalid — clear it
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(()=>{
-    const h=()=>setUser(null);
+    const h=()=>{ setToken(null); setUser(null); };
     window.addEventListener("fj:reauth",h);
     return ()=>window.removeEventListener("fj:reauth",h);
   },[]);
 
-  const handleSignOut=()=>{
-    setToken(null);setUser(null);setSessions([]);setKnownFoods([]);setAllSymptoms([]);
-    if(window.google?.accounts?.id)window.google.accounts.id.disableAutoSelect();
+  const handleSignOut = async () => {
+    try { await apiFetch("/session", { method: "DELETE" }); } catch {}
+    setToken(null);
+    setUser(null); setSessions([]); setKnownFoods([]); setAllSymptoms([]); setSuggestions([]);
+    if (window.google?.accounts?.id) window.google.accounts.id.disableAutoSelect();
   };
 
   const toggleDark=()=>setDarkMode(d=>{saveSettings({...getSettings(),darkMode:!d});return !d;});

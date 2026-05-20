@@ -1,6 +1,16 @@
 -- Food Journal Schema (with Google Auth)
 -- Run this in Railway → Postgres service → Query tab
 
+-- ── Sessions ──────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS sessions (
+  id         TEXT PRIMARY KEY,          -- random 64-char hex token
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id);
+
 -- ── Users ────────────────────────────────────────────────────────────────────
 -- Created automatically the first time someone signs in with Google.
 CREATE TABLE IF NOT EXISTS users (
