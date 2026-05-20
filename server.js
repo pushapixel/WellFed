@@ -246,6 +246,30 @@ app.delete("/meals/:id", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── SUGGESTIONS ───────────────────────────────────────────────────────────────
+// GET /suggestions — returns all suggestions, newest first, with submitter name
+app.get("/suggestions", requireAuth, async (_req, res) => {
+  const { rows } = await q(
+    `SELECT s.id, s.text, s.created_at, u.name
+     FROM suggestions s
+     JOIN users u ON u.id = s.user_id
+     ORDER BY s.created_at DESC`
+  );
+  res.json(rows);
+});
+
+// POST /suggestions  body: { text }
+app.post("/suggestions", requireAuth, async (req, res) => {
+  const { text } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: "text required" });
+  const { rows: [s] } = await q(
+    `INSERT INTO suggestions (user_id, text) VALUES ($1, $2)
+     RETURNING id, text, created_at`,
+    [req.user.id, text.trim()]
+  );
+  res.json({ ...s, name: req.user.name });
+});
+
 // ── Health check (no auth) ────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ ok: true }));
 

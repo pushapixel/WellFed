@@ -505,15 +505,94 @@ function MealCard({session,onEdit,onDelete,t}){
   );
 }
 
+// ── Suggestion modal ──────────────────────────────────────────────────────────
+function SuggestionModal({onSubmit,onClose,t}){
+  const [text,setText]=useState("");
+  const [saving,setSaving]=useState(false);
+  const [done,setDone]=useState(false);
+
+  useEffect(()=>{
+    const prev=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    return()=>{document.body.style.overflow=prev;};
+  },[]);
+
+  const handleSubmit=async()=>{
+    if(!text.trim()||saving)return;
+    setSaving(true);
+    await onSubmit(text.trim());
+    setDone(true);
+    setTimeout(onClose,1500);
+  };
+
+  return(
+    <div style={{position:"fixed",inset:0,background:t.overlay,zIndex:1000,overflowY:"auto",WebkitOverflowScrolling:"touch"}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{minHeight:"25vh"}} onClick={onClose}/>
+      <div style={{background:t.surface,borderRadius:"20px 20px 0 0",padding:"20px 16px 40px",
+        width:"100%",maxWidth:600,margin:"0 auto",boxShadow:t.shadowModal}}>
+        <div style={{width:40,height:4,background:t.border,borderRadius:2,margin:"0 auto 16px"}}/>
+        {done?(
+          <div style={{textAlign:"center",padding:"20px 0"}}>
+            <div style={{fontSize:32,marginBottom:8}}>🙏</div>
+            <div style={{fontWeight:700,color:t.green,fontSize:15}}>Thanks for your suggestion!</div>
+          </div>
+        ):(
+          <>
+            <div style={{fontSize:13,fontWeight:700,color:t.textSub,textTransform:"uppercase",
+              letterSpacing:"0.06em",marginBottom:4}}>Suggest an improvement</div>
+            <div style={{fontSize:12,color:t.textMuted,marginBottom:14}}>
+              Got an idea to make WellFed better? We'd love to hear it.
+            </div>
+            <textarea value={text} onChange={e=>setText(e.target.value)}
+              placeholder="Type your suggestion here…" rows={4}
+              style={{width:"100%",border:`1.5px solid ${t.border}`,borderRadius:10,
+                padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit",
+                color:t.text,background:t.inputBg,resize:"vertical",marginBottom:12,
+                boxSizing:"border-box"}}
+              onFocus={e=>e.target.style.borderColor="#D85A30"}
+              onBlur={e=>e.target.style.borderColor=t.border}/>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={onClose} style={{flex:1,background:t.surface2,border:`1px solid ${t.border}`,
+                borderRadius:10,padding:"12px",fontWeight:700,cursor:"pointer",fontSize:13,
+                color:t.textSub,fontFamily:"inherit"}}>Cancel</button>
+              <button onClick={handleSubmit} disabled={!text.trim()||saving} style={{flex:2,
+                background:text.trim()?`linear-gradient(135deg,#D85A30,#993C1D)`:t.surface2,
+                border:`1px solid ${text.trim()?"#D85A30":t.border}`,borderRadius:10,padding:"12px",
+                fontWeight:700,cursor:text.trim()?"pointer":"default",fontSize:13,
+                color:text.trim()?"#fff":t.textMuted,fontFamily:"inherit",
+                opacity:saving?.6:1}}>
+                {saving?"Sending…":"Send suggestion"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Log Page ──────────────────────────────────────────────────────────────────
-function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDeleteMeal,onAddFood,onAddSymptom,t}){
+function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDeleteMeal,onAddFood,onAddSymptom,onSuggest,t}){
   const [mealFoods,setMealFoods]=useState([]);
   const [saving,setSaving]=useState(false);
   const [saved,setSaved]=useState(false);
   const [editSession,setEditSession]=useState(null);
+  const [showPrevious,setShowPrevious]=useState(false);
+  const [showSuggest,setShowSuggest]=useState(false);
 
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const todaySessions=[...sessions.filter(s=>isToday(s.ts))].sort((a,b)=>b.ts.localeCompare(a.ts));
+
+  // Group previous sessions by date
+  const previousSessions=sessions.filter(s=>!isToday(s.ts));
+  const byDate={};
+  previousSessions.forEach(s=>{
+    const d=new Date(s.ts).toDateString();
+    if(!byDate[d])byDate[d]=[];
+    byDate[d].push(s);
+  });
+  const prevDates=Object.keys(byDate).sort((a,b)=>new Date(b)-new Date(a));
 
   const handleAddFood=name=>{
     const existing=knownFoods.find(f=>normalize(f)===normalize(name));
@@ -534,7 +613,7 @@ function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDele
     <div style={{padding:"0 0 80px 0"}}>
       {/* Date header */}
       <div style={{fontSize:11,fontWeight:700,color:t.accent,letterSpacing:"0.08em",
-        textTransform:"uppercase",marginBottom:10,paddingTop:2,fontFamily:"'Inter',sans-serif"}}>
+        textTransform:"uppercase",marginBottom:10,paddingTop:2}}>
         {today}
       </div>
 
@@ -578,11 +657,54 @@ function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDele
         </>
       )}
 
+      {/* Previous entries */}
+      {previousSessions.length>0&&(
+        <div style={{marginTop:8}}>
+          <button onClick={()=>setShowPrevious(p=>!p)} style={{
+            width:"100%",background:t.surface,border:`1px solid ${t.border}`,
+            borderRadius:12,padding:"11px",fontWeight:700,cursor:"pointer",fontSize:13,
+            color:t.textSub,fontFamily:"inherit",boxShadow:t.shadow,
+            display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <span style={{fontSize:15}}>{showPrevious?"▲":"▼"}</span>
+            {showPrevious?"Hide previous entries":`Show previous entries (${previousSessions.length})`}
+          </button>
+          {showPrevious&&(
+            <div style={{marginTop:12}}>
+              {prevDates.map(dateStr=>(
+                <div key={dateStr}>
+                  <div style={{fontSize:11,fontWeight:700,color:t.textSub,textTransform:"uppercase",
+                    letterSpacing:"0.06em",marginBottom:8,marginTop:4}}>
+                    {new Date(dateStr).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
+                  </div>
+                  {byDate[dateStr].sort((a,b)=>b.ts.localeCompare(a.ts)).map(s=>(
+                    <MealCard key={s.id} session={s} onEdit={setEditSession} onDelete={onDeleteMeal} t={t}/>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Suggest improvement button */}
+      <div style={{marginTop:16,textAlign:"center"}}>
+        <button onClick={()=>setShowSuggest(true)} style={{
+          background:"none",border:"none",cursor:"pointer",
+          fontSize:12,color:t.textMuted,fontFamily:"inherit",
+          textDecoration:"underline",textUnderlineOffset:3}}>
+          💡 Suggest an improvement
+        </button>
+      </div>
+
+      {/* Modals */}
       {editSession&&(
         <RateModal session={editSession}
           onSave={async updated=>{await onUpdateMeal(updated);setEditSession(null);}}
           onClose={()=>setEditSession(null)}
           allSymptoms={allSymptoms} onAddSymptom={onAddSymptom} t={t}/>
+      )}
+      {showSuggest&&(
+        <SuggestionModal onSubmit={onSuggest} onClose={()=>setShowSuggest(false)} t={t}/>
       )}
     </div>
   );
@@ -894,7 +1016,7 @@ function LoginScreen({onSignIn,darkMode,t}){
 }
 
 // ── Settings Page ─────────────────────────────────────────────────────────────
-function SettingsPage({darkMode,onToggle,user,onSignOut,t}){
+function SettingsPage({darkMode,onToggle,user,onSignOut,suggestions,t}){
   return(
     <div style={{padding:"0 0 80px 0"}}>
       {/* Account */}
@@ -923,27 +1045,52 @@ function SettingsPage({darkMode,onToggle,user,onSignOut,t}){
         <div style={{fontSize:12,fontWeight:700,color:t.textSub,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:14}}>Appearance</div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
-            <div style={{fontWeight:700,color:t.text,fontSize:14}}>{darkMode?"🌙 Dark (warm brown)":"☀️ Light (cream & tan)"}</div>
+            <div style={{fontWeight:700,color:t.text,fontSize:14}}>{darkMode?"🌙 Dark":"☀️ Light"}</div>
             <div style={{fontSize:12,color:t.textMuted,marginTop:2}}>
-              {darkMode?"Deep brown palette":"Warm cream palette"}
+              {darkMode?"Deep teal-slate palette":"Cool sage palette"}
             </div>
           </div>
           <div onClick={onToggle} style={{width:50,height:28,borderRadius:14,cursor:"pointer",
             background:darkMode?"#D85A30":t.border,position:"relative",transition:"background .25s",flexShrink:0}}>
-            <div style={{width:22,height:22,borderRadius:"50%",background:"#FAECE7",position:"absolute",
+            <div style={{width:22,height:22,borderRadius:"50%",background:darkMode?"#D8EEEA":"#fff",position:"absolute",
               top:3,left:darkMode?25:3,transition:"left .25s",boxShadow:"0 1px 4px rgba(0,0,0,.3)"}}/>
           </div>
         </div>
       </div>
 
       {/* About */}
-      <div style={{background:t.surface,borderRadius:14,padding:"16px",boxShadow:t.shadow,border:`1px solid ${t.border}`}}>
+      <div style={{background:t.surface,borderRadius:14,padding:"16px",boxShadow:t.shadow,border:`1px solid ${t.border}`,marginBottom:12}}>
         <div style={{marginBottom:16,display:"flex",justifyContent:"center"}}>
           <WellFedLogo darkMode={darkMode} height={44}/>
         </div>
         <div style={{fontSize:13,color:t.textMuted,lineHeight:1.7,textAlign:"center"}}>
           Log what you eat, then come back 30–60 minutes later to rate how you feel and note any symptoms. Over time, patterns reveal which foods affect your wellbeing.
         </div>
+      </div>
+
+      {/* Suggestions */}
+      <div style={{background:t.surface,borderRadius:14,padding:"16px",boxShadow:t.shadow,border:`1px solid ${t.border}`}}>
+        <div style={{fontSize:12,fontWeight:700,color:t.textSub,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:12}}>
+          💡 Suggestions ({suggestions.length})
+        </div>
+        {suggestions.length===0?(
+          <div style={{fontSize:13,color:t.textMuted,textAlign:"center",padding:"12px 0"}}>
+            No suggestions yet. Use the link on the Log page to submit one.
+          </div>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {suggestions.map((s,i)=>(
+              <div key={i} style={{background:t.surface2,borderRadius:10,padding:"10px 12px",
+                border:`1px solid ${t.border}`}}>
+                <div style={{fontSize:13,color:t.text,lineHeight:1.6,marginBottom:4}}>{s.text}</div>
+                <div style={{fontSize:10,color:t.textMuted,fontWeight:600}}>
+                  {s.name&&<span>{s.name} · </span>}
+                  {new Date(s.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -962,6 +1109,7 @@ export default function App(){
   const [sessions,setSessions]=useState([]);
   const [knownFoods,setKnownFoods]=useState([]);
   const [allSymptoms,setAllSymptoms]=useState([]);
+  const [suggestions,setSuggestions]=useState([]);
   const [darkMode,setDarkMode]=useState(()=>getSettings().darkMode||false);
   const [loading,setLoading]=useState(false);
   const t=darkMode?DARK:LIGHT;
@@ -970,12 +1118,13 @@ export default function App(){
     setToken(response.credential);
     setLoading(true);
     try{
-      const [me,meals,foods,symptoms]=await Promise.all([
-        apiGet("/me"),apiGet("/meals"),apiGet("/foods"),apiGet("/symptoms"),
+      const [me,meals,foods,symptoms,suggs]=await Promise.all([
+        apiGet("/me"),apiGet("/meals"),apiGet("/foods"),apiGet("/symptoms"),apiGet("/suggestions"),
       ]);
       setUser(me);setSessions(meals);
       setKnownFoods(foods.map(f=>f.name));
       setAllSymptoms(symptoms.map(s=>s.name));
+      setSuggestions(suggs);
     }catch(e){console.error("Login failed:",e);setToken(null);}
     finally{setLoading(false);}
   },[]);
@@ -1018,6 +1167,11 @@ export default function App(){
   const updateMeal=useCallback(async updated=>{
     const meal=await apiPatch(`/meals/${updated.id}`,{rating:updated.rating,symptoms:updated.symptoms});
     setSessions(prev=>prev.map(s=>s.id===meal.id?meal:s));
+  },[]);
+
+  const submitSuggestion=useCallback(async text=>{
+    const s=await apiPost("/suggestions",{text});
+    setSuggestions(prev=>[s,...prev]);
   },[]);
 
   // Loading
@@ -1071,9 +1225,9 @@ export default function App(){
       {/* Page content */}
       <div style={{padding:"12px 12px 0"}}>
         {tab==="log"&&<LogPage sessions={sessions} knownFoods={knownFoods} allSymptoms={allSymptoms}
-          onSaveMeal={saveMeal} onUpdateMeal={updateMeal} onDeleteMeal={deleteMeal} onAddFood={addFood} onAddSymptom={addSymptom} t={t}/>}
+          onSaveMeal={saveMeal} onUpdateMeal={updateMeal} onDeleteMeal={deleteMeal} onAddFood={addFood} onAddSymptom={addSymptom} onSuggest={submitSuggestion} t={t}/>}
         {tab==="analysis"&&<AnalysisPage sessions={sessions} t={t}/>}
-        {tab==="settings"&&<SettingsPage darkMode={darkMode} onToggle={toggleDark} user={user} onSignOut={handleSignOut} t={t}/>}
+        {tab==="settings"&&<SettingsPage darkMode={darkMode} onToggle={toggleDark} user={user} onSignOut={handleSignOut} suggestions={suggestions} t={t}/>}
       </div>
     </div>
   );
