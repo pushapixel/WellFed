@@ -10,7 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 // API is same-origin (Railway serves both frontend and API), so no base URL needed.
 // Just replace GOOGLE_CLIENT_ID with yours from Google Cloud Console.
 const API              = "";
-const GOOGLE_CLIENT_ID = "YOUR_CLIENT_ID.apps.googleusercontent.com"; // ← replace this
+const GOOGLE_CLIENT_ID = "168274465421-7rj5j39seagomfan2jh3lq655ft52cib.apps.googleusercontent.com"; // ← replace this
 
 // ── Session token management ──────────────────────────────────────────────────
 // On first Google sign-in, the API returns a 30-day session token.
@@ -336,7 +336,6 @@ function RateModal({session,onSave,onClose,allSymptoms,onAddSymptom,t}){
   const [timeError,setTimeError]=useState("");
 
   const handleSave=async()=>{
-    // Parse the edited time back into a full ISO timestamp
     const [h,m]=timeVal.split(":").map(Number);
     if(isNaN(h)||isNaN(m)||h<0||h>23||m<0||m>59){
       setTimeError("Please enter a valid time (HH:MM).");return;
@@ -344,8 +343,13 @@ function RateModal({session,onSave,onClose,allSymptoms,onAddSymptom,t}){
     const newTs=new Date(session.ts);
     newTs.setHours(h,m,0,0);
     setSaving(true);
-    await onSave({...session,rating,symptoms,ts:newTs.toISOString()});
-    onClose();
+    try{
+      await onSave({...session,rating,symptoms,ts:newTs.toISOString()});
+      onClose();
+    }catch(e){
+      console.error("Save failed:",e);
+      setSaving(false);
+    }
   };
 
   // Lock body scroll while modal is open
