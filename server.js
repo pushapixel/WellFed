@@ -250,9 +250,10 @@ app.patch("/meals/:id", requireAuth, async (req, res) => {
     await dbClient.query("BEGIN");
 
     // Update rating and/or timestamp in one statement
+    // rating=0 means "not yet rated" — skip it to avoid violating CHECK constraint
     const setClauses = [];
     const setParams = [];
-    if (rating !== undefined) {
+    if (rating !== undefined && rating >= 1) {
       setParams.push(rating);
       setClauses.push(`rating = $${setParams.length}`);
     }
