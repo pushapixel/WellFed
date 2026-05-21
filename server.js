@@ -249,13 +249,23 @@ app.patch("/meals/:id", requireAuth, async (req, res) => {
   try {
     await dbClient.query("BEGIN");
 
+    // Update rating and/or timestamp in one statement
+    const setClauses = [];
+    const setParams = [];
     if (rating !== undefined) {
-      await dbClient.query("UPDATE meals SET rating = $1 WHERE id = $2", [rating, id]);
+      setParams.push(rating);
+      setClauses.push(`rating = $${setParams.length}`);
     }
-
-    // Update timestamp if provided (user edited the time)
     if (req.body.ts) {
-      await dbClient.query("UPDATE meals SET eaten_at = $1 WHERE id = $2", [req.body.ts, id]);
+      setParams.push(req.body.ts);
+      setClauses.push(`eaten_at = $${setParams.length}`);
+    }
+    if (setClauses.length > 0) {
+      setParams.push(id);
+      await dbClient.query(
+        `UPDATE meals SET ${setClauses.join(", ")} WHERE id = $${setParams.length}`,
+        setParams
+      );
     }
 
     // Optionally update foods (used by "add to last meal")
