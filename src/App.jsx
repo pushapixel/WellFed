@@ -328,9 +328,23 @@ function RateModal({session,onSave,onClose,allSymptoms,onAddSymptom,t}){
   const [symptoms,setSymptoms]=useState(session.symptoms||[]);
   const [saving,setSaving]=useState(false);
 
+  // Time editing — initialise from session.ts as a local HH:MM string
+  const tsDate=new Date(session.ts);
+  const pad=n=>String(n).padStart(2,"0");
+  const initTime=`${pad(tsDate.getHours())}:${pad(tsDate.getMinutes())}`;
+  const [timeVal,setTimeVal]=useState(initTime);
+  const [timeError,setTimeError]=useState("");
+
   const handleSave=async()=>{
+    // Parse the edited time back into a full ISO timestamp
+    const [h,m]=timeVal.split(":").map(Number);
+    if(isNaN(h)||isNaN(m)||h<0||h>23||m<0||m>59){
+      setTimeError("Please enter a valid time (HH:MM).");return;
+    }
+    const newTs=new Date(session.ts);
+    newTs.setHours(h,m,0,0);
     setSaving(true);
-    await onSave({...session,rating,symptoms});
+    await onSave({...session,rating,symptoms,ts:newTs.toISOString()});
     onClose();
   };
 
@@ -345,17 +359,36 @@ function RateModal({session,onSave,onClose,allSymptoms,onAddSymptom,t}){
     <div style={{position:"fixed",inset:0,background:t.overlay,zIndex:1000,
       overflowY:"auto",WebkitOverflowScrolling:"touch"}}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
-      {/* Spacer so tapping the dark area above closes the modal */}
       <div style={{minHeight:"20vh"}} onClick={onClose}/>
       <div style={{background:t.surface,borderRadius:"20px 20px 0 0",
         padding:"20px 16px 40px",width:"100%",maxWidth:600,
         margin:"0 auto",boxShadow:t.shadowModal,position:"relative"}}>
         <div style={{width:40,height:4,background:t.border,borderRadius:2,margin:"0 auto 16px"}}/>
-        <div style={{fontSize:13,fontWeight:700,color:t.textSub,textTransform:"uppercase",
-          letterSpacing:"0.06em",marginBottom:4}}>How did you feel?</div>
-        <div style={{fontSize:12,color:t.textMuted,marginBottom:14}}>
-          Eaten at {fmtTime(session.ts)} · {session.foods.join(", ")}
+
+        {/* Time editor */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:t.textSub,textTransform:"uppercase",
+              letterSpacing:"0.06em",marginBottom:2}}>Edit meal</div>
+            <div style={{fontSize:12,color:t.textMuted}}>{session.foods.join(", ")}</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+            <label style={{fontSize:10,fontWeight:700,color:t.textMuted,textTransform:"uppercase",letterSpacing:"0.06em"}}>
+              Time eaten
+            </label>
+            <input
+              type="time"
+              value={timeVal}
+              onChange={e=>{setTimeVal(e.target.value);setTimeError("");}}
+              style={{border:`1.5px solid ${timeError?t.red:t.border}`,borderRadius:8,
+                padding:"6px 10px",fontSize:16,fontWeight:700,fontFamily:"'Lora',serif",
+                color:t.text,background:t.inputBg,outline:"none",
+                colorScheme:t===DARK?"dark":"light"}}
+            />
+            {timeError&&<div style={{fontSize:11,color:t.red}}>{timeError}</div>}
+          </div>
         </div>
+
         <div style={{marginBottom:16}}>
           <div style={{fontSize:12,fontWeight:600,color:t.textSub,marginBottom:6}}>Overall feeling</div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -370,17 +403,16 @@ function RateModal({session,onSave,onClose,allSymptoms,onAddSymptom,t}){
           <SymptomSelector selected={symptoms} onChange={setSymptoms}
             allSymptoms={allSymptoms} onAddSymptom={onAddSymptom} t={t}/>
         </div>
-        {/* Buttons always visible — not clipped */}
         <div style={{display:"flex",gap:8}}>
           <button onClick={onClose} style={{flex:1,background:t.surface2,border:`1px solid ${t.border}`,
             borderRadius:10,padding:"13px",fontWeight:700,cursor:"pointer",fontSize:13,
             color:t.textSub,fontFamily:"inherit"}}>Cancel</button>
           <button onClick={handleSave} disabled={saving} style={{flex:2,
-            background:rating>0?`linear-gradient(135deg,#D85A30,#993C1D)`:t.surface2,
-            border:`1px solid ${rating>0?"#D85A30":t.border}`,borderRadius:10,padding:"13px",
+            background:`linear-gradient(135deg,#D85A30,#993C1D)`,
+            border:"none",borderRadius:10,padding:"13px",
             fontWeight:700,cursor:"pointer",fontSize:13,
-            color:rating>0?"#fff":t.textMuted,fontFamily:"inherit",opacity:saving?.6:1}}>
-            {saving?"Saving…":rating>0?"Save rating & symptoms":"Save (no rating)"}
+            color:"#fff",fontFamily:"inherit",opacity:saving?.6:1}}>
+            {saving?"Saving…":"Save"}
           </button>
         </div>
       </div>
