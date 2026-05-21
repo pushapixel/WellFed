@@ -253,6 +253,11 @@ app.patch("/meals/:id", requireAuth, async (req, res) => {
       await dbClient.query("UPDATE meals SET rating = $1 WHERE id = $2", [rating, id]);
     }
 
+    // Update timestamp if provided (user edited the time)
+    if (req.body.ts) {
+      await dbClient.query("UPDATE meals SET eaten_at = $1 WHERE id = $2", [req.body.ts, id]);
+    }
+
     // Optionally update foods (used by "add to last meal")
     if (foods && foods.length > 0) {
       await dbClient.query("DELETE FROM meal_foods WHERE meal_id = $1", [id]);
