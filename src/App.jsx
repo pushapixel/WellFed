@@ -450,10 +450,11 @@ function FoodInput({knownFoods,onAdd,sessionFoods,t}){
 }
 
 // ── Meal card ─────────────────────────────────────────────────────────────────
-function MealCard({session,onEdit,onDelete,t}){
+function MealCard({session,onEdit,onDelete,onQuickRate,t}){
   const pending=!session.rating&&!session.symptoms?.length;
-  const leftColor = pending ? "#C67D20" : session.rating ? ratingColor(session.rating,t) : t.border;
+  const leftColor=pending?"#C67D20":session.rating?ratingColor(session.rating,t):t.border;
   const [confirming,setConfirming]=useState(false);
+  const [hovered,setHovered]=useState(0);
 
   const handleDelete=async()=>{
     if(!confirming){setConfirming(true);setTimeout(()=>setConfirming(false),3000);return;}
@@ -471,33 +472,47 @@ function MealCard({session,onEdit,onDelete,t}){
           {!isToday(session.ts)&&<span style={{fontSize:11,color:t.textMuted}}>{fmtDate(session.ts)}</span>}
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          {/* Trash — tap once to arm, tap again to confirm */}
           <button onClick={handleDelete} title={confirming?"Tap again to delete":"Delete meal"}
             style={{background:confirming?t.redSoft:"none",
               border:`1px solid ${confirming?t.redBorder:"transparent"}`,
               borderRadius:8,padding:"4px 8px",cursor:"pointer",
               color:confirming?t.red:t.textMuted,fontSize:15,lineHeight:1,
               transition:"all .2s",display:"flex",alignItems:"center",gap:4}}>
-            🗑
-            {confirming&&<span style={{fontSize:11,fontWeight:700,fontFamily:"inherit"}}>Delete?</span>}
+            🗑{confirming&&<span style={{fontSize:11,fontWeight:700,fontFamily:"inherit"}}>Delete?</span>}
           </button>
           <button onClick={()=>onEdit(session)} style={{
             background:t.accentSoft,border:`1px solid ${t.accentBorder}`,
             borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,color:t.accent,
             cursor:"pointer",fontFamily:"inherit"}}>
-            {pending?"Rate now ✦":"Edit"}
+            Edit
           </button>
         </div>
       </div>
-      <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
+      <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
         {session.foods.map(f=><FoodTag key={f} name={f} t={t}/>)}
       </div>
-      {session.rating>0&&(
-        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginTop:4}}>
-          <Stars value={session.rating} readonly size={14} t={t}/>
-          <span style={{fontSize:12,color:ratingColor(session.rating,t),fontWeight:600}}>{ratingLabel(session.rating)}</span>
+
+      {/* Inline star rating — always visible */}
+      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:3,cursor:"pointer"}}>
+          {[1,2,3,4,5].map(n=>(
+            <span key={n}
+              style={{fontSize:22,lineHeight:1,
+                color:n<=(hovered||session.rating||0)?"#D85A30":t.border,
+                transition:"color .1s,transform .1s",
+                transform:hovered===n?"scale(1.25)":"scale(1)",
+                display:"inline-block"}}
+              onMouseEnter={()=>setHovered(n)}
+              onMouseLeave={()=>setHovered(0)}
+              onClick={()=>onQuickRate(session,n)}>★</span>
+          ))}
         </div>
-      )}
+        {session.rating>0
+          ?<span style={{fontSize:12,color:ratingColor(session.rating,t),fontWeight:600}}>{ratingLabel(session.rating)}</span>
+          :<span style={{fontSize:11,color:t.textMuted}}>Tap to rate how you felt</span>
+        }
+      </div>
+
       {session.symptoms?.length>0&&(
         <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:6}}>
           {session.symptoms.map(s=>(
@@ -506,9 +521,6 @@ function MealCard({session,onEdit,onDelete,t}){
           ))}
         </div>
       )}
-      {pending&&<div style={{fontSize:11,color:"#C67D20",fontWeight:600,marginTop:6}}>
-        ⏳ Come back in 30–60 min to rate how you feel
-      </div>}
     </div>
   );
 }
@@ -580,19 +592,114 @@ function SuggestionModal({onSubmit,onClose,t}){
   );
 }
 
+// ── Onboarding ────────────────────────────────────────────────────────────────
+const ONBOARDING_KEY="wf:onboarded";
+const STEPS=[
+  {icon:"🍽️",title:"Log what you eat",body:"After a meal, tap the food input and add each item you ate. Hit "Log meal" when done."},
+  {icon:"⭐",title:"Rate how you feel",body:"Come back 30–60 minutes later and tap the stars on your meal card to rate how you're feeling."},
+  {icon:"📊",title:"Discover patterns",body:"Over time the Analysis page reveals which foods make you feel great — and which ones don't."},
+];
+
+function Onboarding({onDone,t}){
+  const [step,setStep]=useState(0);
+  const isLast=step===STEPS.length-1;
+  const s=STEPS[step];
+  return(
+    <div style={{position:"fixed",inset:0,background:t.overlay,zIndex:2000,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{background:t.surface,borderRadius:20,padding:"32px 24px 24px",
+        maxWidth:340,width:"100%",boxShadow:t.shadowModal,textAlign:"center"}}>
+        <div style={{fontSize:52,marginBottom:16}}>{s.icon}</div>
+        <div style={{fontSize:18,fontWeight:700,color:t.text,fontFamily:"'Lora',serif",marginBottom:10}}>{s.title}</div>
+        <div style={{fontSize:14,color:t.textMuted,lineHeight:1.7,marginBottom:24}}>{s.body}</div>
+        {/* Step dots */}
+        <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:20}}>
+          {STEPS.map((_,i)=>(
+            <div key={i} style={{width:i===step?20:7,height:7,borderRadius:4,
+              background:i===step?"#D85A30":t.border,transition:"all .3s"}}/>
+          ))}
+        </div>
+        <button onClick={()=>isLast?onDone():setStep(s=>s+1)} style={{
+          width:"100%",background:`linear-gradient(135deg,#D85A30,#993C1D)`,color:"#fff",
+          border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:15,
+          cursor:"pointer",fontFamily:"inherit"}}>
+          {isLast?"Let's go!":"Next →"}
+        </button>
+        {!isLast&&(
+          <button onClick={onDone} style={{marginTop:10,background:"none",border:"none",
+            cursor:"pointer",fontSize:12,color:t.textMuted,fontFamily:"inherit"}}>
+            Skip intro
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Symptom-only modal (after quick-rating inline) ────────────────────────────
+function SymptomModal({session,onSave,onClose,allSymptoms,onAddSymptom,t}){
+  const [symptoms,setSymptoms]=useState(session.symptoms||[]);
+  const [saving,setSaving]=useState(false);
+
+  useEffect(()=>{
+    const prev=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    return()=>{document.body.style.overflow=prev;};
+  },[]);
+
+  const handleSave=async()=>{
+    setSaving(true);
+    await onSave({...session,symptoms});
+    onClose();
+  };
+
+  return(
+    <div style={{position:"fixed",inset:0,background:t.overlay,zIndex:1000,overflowY:"auto",WebkitOverflowScrolling:"touch"}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{minHeight:"20vh"}} onClick={onClose}/>
+      <div style={{background:t.surface,borderRadius:"20px 20px 0 0",padding:"20px 16px 40px",
+        width:"100%",maxWidth:600,margin:"0 auto",boxShadow:t.shadowModal}}>
+        <div style={{width:40,height:4,background:t.border,borderRadius:2,margin:"0 auto 16px"}}/>
+        <div style={{fontSize:13,fontWeight:700,color:t.textSub,textTransform:"uppercase",
+          letterSpacing:"0.06em",marginBottom:4}}>Any symptoms?</div>
+        <div style={{fontSize:12,color:t.textMuted,marginBottom:14}}>
+          {session.foods.join(", ")} · {fmtTime(session.ts)}
+        </div>
+        <SymptomSelector selected={symptoms} onChange={setSymptoms}
+          allSymptoms={allSymptoms} onAddSymptom={onAddSymptom} t={t}/>
+        <div style={{display:"flex",gap:8,marginTop:20}}>
+          <button onClick={onClose} style={{flex:1,background:t.surface2,border:`1px solid ${t.border}`,
+            borderRadius:10,padding:"13px",fontWeight:700,cursor:"pointer",fontSize:13,
+            color:t.textSub,fontFamily:"inherit"}}>No symptoms</button>
+          <button onClick={handleSave} disabled={saving} style={{flex:2,
+            background:`linear-gradient(135deg,#D85A30,#993C1D)`,border:"none",
+            borderRadius:10,padding:"13px",fontWeight:700,cursor:"pointer",fontSize:13,
+            color:"#fff",fontFamily:"inherit",opacity:saving?.6:1}}>
+            {saving?"Saving…":"Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Log Page ──────────────────────────────────────────────────────────────────
 function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDeleteMeal,onAddFood,onAddSymptom,onSuggest,t}){
   const [mealFoods,setMealFoods]=useState([]);
   const [saving,setSaving]=useState(false);
   const [saved,setSaved]=useState(false);
   const [editSession,setEditSession]=useState(null);
+  const [symSession,setSymSession]=useState(null); // after quick-rate
   const [showPrevious,setShowPrevious]=useState(false);
   const [showSuggest,setShowSuggest]=useState(false);
+  const [showOnboarding,setShowOnboarding]=useState(
+    ()=>localStorage.getItem(ONBOARDING_KEY)!=="1"
+  );
 
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const todaySessions=[...sessions.filter(s=>isToday(s.ts))].sort((a,b)=>b.ts.localeCompare(a.ts));
+  const lastMeal=todaySessions[0]||null; // most recent meal today
 
-  // Group previous sessions by date
   const previousSessions=sessions.filter(s=>!isToday(s.ts));
   const byDate={};
   previousSessions.forEach(s=>{
@@ -617,13 +724,33 @@ function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDele
     setSaved(true);setTimeout(()=>setSaved(false),2200);
   };
 
+  // Add to last meal — patch the most recent meal's foods
+  const handleAddToLast=async()=>{
+    if(!mealFoods.length||!lastMeal||saving)return;
+    setSaving(true);
+    const merged=[...new Set([...lastMeal.foods,...mealFoods])];
+    await onUpdateMeal({...lastMeal,foods:merged,rating:lastMeal.rating,symptoms:lastMeal.symptoms||[]});
+    setMealFoods([]);setSaving(false);
+    setSaved(true);setTimeout(()=>setSaved(false),2200);
+  };
+
+  // Quick-rate: set rating inline, then open symptom-only modal
+  const handleQuickRate=async(session,rating)=>{
+    await onUpdateMeal({...session,rating,symptoms:session.symptoms||[]});
+    setSymSession({...session,rating});
+  };
+
+  const doneOnboarding=()=>{
+    localStorage.setItem(ONBOARDING_KEY,"1");
+    setShowOnboarding(false);
+  };
+
   return(
     <div style={{padding:"0 0 80px 0"}}>
-      {/* Date header */}
+      {showOnboarding&&<Onboarding onDone={doneOnboarding} t={t}/>}
+
       <div style={{fontSize:11,fontWeight:700,color:t.accent,letterSpacing:"0.08em",
-        textTransform:"uppercase",marginBottom:10,paddingTop:2}}>
-        {today}
-      </div>
+        textTransform:"uppercase",marginBottom:10,paddingTop:2}}>{today}</div>
 
       {/* Compact log form */}
       <div style={{background:t.surface,borderRadius:14,padding:"12px 14px",
@@ -636,21 +763,32 @@ function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDele
             ))}
           </div>
         )}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:10,gap:8}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:10,gap:8,flexWrap:"wrap"}}>
           <span style={{fontSize:11,color:t.textMuted}}>
             {mealFoods.length>0
               ?`${mealFoods.length} item${mealFoods.length>1?"s":""} · rate how you feel in 30–60 min`
               :"Add foods eaten, then rate how you feel later"}
           </span>
-          <button onClick={handleSave} disabled={!mealFoods.length||saving} style={{
-            background:saved
-              ?`linear-gradient(135deg,${t.green},#1A5C3A)`
-              :`linear-gradient(135deg,#D85A30,#993C1D)`,
-            color:"#fff",border:"none",borderRadius:10,padding:"8px 18px",fontWeight:700,
-            cursor:mealFoods.length&&!saving?"pointer":"not-allowed",fontSize:13,fontFamily:"inherit",
-            opacity:mealFoods.length&&!saving?1:0.35,transition:"background .3s,opacity .2s",whiteSpace:"nowrap"}}>
-            {saving?"Saving…":saved?"✓ Logged!":"Log meal"}
-          </button>
+          <div style={{display:"flex",gap:6}}>
+            {/* Add to last meal button — only shown when foods entered AND a prior meal exists today */}
+            {mealFoods.length>0&&lastMeal&&(
+              <button onClick={handleAddToLast} disabled={saving} style={{
+                background:t.surface2,border:`1px solid ${t.border}`,color:t.textSub,
+                borderRadius:10,padding:"8px 12px",fontWeight:700,cursor:"pointer",
+                fontSize:12,fontFamily:"inherit",whiteSpace:"nowrap"}}>
+                + Add to last meal
+              </button>
+            )}
+            <button onClick={handleSave} disabled={!mealFoods.length||saving} style={{
+              background:saved
+                ?`linear-gradient(135deg,${t.green},#1A5C3A)`
+                :`linear-gradient(135deg,#D85A30,#993C1D)`,
+              color:"#fff",border:"none",borderRadius:10,padding:"8px 18px",fontWeight:700,
+              cursor:mealFoods.length&&!saving?"pointer":"not-allowed",fontSize:13,fontFamily:"inherit",
+              opacity:mealFoods.length&&!saving?1:0.35,transition:"background .3s,opacity .2s",whiteSpace:"nowrap"}}>
+              {saving?"Saving…":saved?"✓ Logged!":"Log meal"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -660,7 +798,8 @@ function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDele
           <div style={{fontSize:11,fontWeight:700,color:t.textSub,textTransform:"uppercase",
             letterSpacing:"0.06em",marginBottom:8}}>Today's meals</div>
           {todaySessions.map(s=>(
-            <MealCard key={s.id} session={s} onEdit={setEditSession} onDelete={onDeleteMeal} t={t}/>
+            <MealCard key={s.id} session={s} onEdit={setEditSession}
+              onDelete={onDeleteMeal} onQuickRate={handleQuickRate} t={t}/>
           ))}
         </>
       )}
@@ -673,7 +812,7 @@ function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDele
             borderRadius:12,padding:"11px",fontWeight:700,cursor:"pointer",fontSize:13,
             color:t.textSub,fontFamily:"inherit",boxShadow:t.shadow,
             display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            <span style={{fontSize:15}}>{showPrevious?"▲":"▼"}</span>
+            <span>{showPrevious?"▲":"▼"}</span>
             {showPrevious?"Hide previous entries":`Show previous entries (${previousSessions.length})`}
           </button>
           {showPrevious&&(
@@ -685,7 +824,8 @@ function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDele
                     {new Date(dateStr).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
                   </div>
                   {byDate[dateStr].sort((a,b)=>b.ts.localeCompare(a.ts)).map(s=>(
-                    <MealCard key={s.id} session={s} onEdit={setEditSession} onDelete={onDeleteMeal} t={t}/>
+                    <MealCard key={s.id} session={s} onEdit={setEditSession}
+                      onDelete={onDeleteMeal} onQuickRate={handleQuickRate} t={t}/>
                   ))}
                 </div>
               ))}
@@ -694,7 +834,6 @@ function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDele
         </div>
       )}
 
-      {/* Suggest improvement button */}
       <div style={{marginTop:16,textAlign:"center"}}>
         <button onClick={()=>setShowSuggest(true)} style={{
           background:"none",border:"none",cursor:"pointer",
@@ -704,11 +843,16 @@ function LogPage({sessions,knownFoods,allSymptoms,onSaveMeal,onUpdateMeal,onDele
         </button>
       </div>
 
-      {/* Modals */}
       {editSession&&(
         <RateModal session={editSession}
           onSave={async updated=>{await onUpdateMeal(updated);setEditSession(null);}}
           onClose={()=>setEditSession(null)}
+          allSymptoms={allSymptoms} onAddSymptom={onAddSymptom} t={t}/>
+      )}
+      {symSession&&(
+        <SymptomModal session={symSession}
+          onSave={async updated=>{await onUpdateMeal(updated);setSymSession(null);}}
+          onClose={()=>setSymSession(null)}
           allSymptoms={allSymptoms} onAddSymptom={onAddSymptom} t={t}/>
       )}
       {showSuggest&&(
@@ -766,21 +910,39 @@ function AnalysisPage({sessions,t}){
     avgRating:d.avgRating.length?+(d.avgRating.reduce((a,b)=>a+b,0)/d.avgRating.length).toFixed(1):null,
   })).sort((a,b)=>b.count-a.count);
 
+  // ── Timeline: group rated sessions by ISO week, compute avg ───────────────
+  const weekData=[];
+  {
+    const wmap={};
+    rated.forEach(s=>{
+      const d=new Date(s.ts);
+      // Get Monday of that week
+      const day=d.getDay();
+      const diff=d.getDate()-day+(day===0?-6:1);
+      const mon=new Date(d.setDate(diff));
+      const key=mon.toISOString().slice(0,10);
+      if(!wmap[key])wmap[key]=[];
+      wmap[key].push(s.rating);
+    });
+    Object.entries(wmap).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([k,ratings])=>{
+      const label=new Date(k).toLocaleDateString("en-US",{month:"short",day:"numeric"});
+      weekData.push({label,avg:+(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(2),count:ratings.length});
+    });
+  }
+
   const sorted=[...foodStats].sort((a,b)=>{const d=a[sortKey]<b[sortKey]?-1:a[sortKey]>b[sortKey]?1:0;return sortAsc?d:-d;});
   const handleSort=k=>{if(sortKey===k)setSortAsc(a=>!a);else{setSortKey(k);setSortAsc(true);}};
   const chartData=[...foodStats].sort((a,b)=>b.count-a.count).slice(0,15).sort((a,b)=>a.avg-b.avg);
   const symChart=[...symStats].slice(0,12);
 
+  const tolerateWell=foodStats.filter(f=>f.avg>=4&&f.count>=2).sort((a,b)=>b.avg-a.avg);
+  const doesNotTolerate=foodStats.filter(f=>f.avg<3&&f.count>=2).sort((a,b)=>a.avg-b.avg);
+
   const card={background:t.surface,borderRadius:14,padding:"14px",boxShadow:t.shadow,border:`1px solid ${t.border}`,marginBottom:12};
   const sec={margin:"0 0 10px 0",fontSize:12,fontWeight:700,color:t.textSub,textTransform:"uppercase",letterSpacing:"0.06em"};
-
-  // Segmented control style
-  const seg=(active)=>({
-    flex:1,background:active?t.surface:"none",border:"none",borderRadius:8,
+  const seg=(active)=>({flex:1,background:active?t.surface:"none",border:"none",borderRadius:8,
     padding:"7px 4px",fontSize:11,fontWeight:700,color:active?t.accent:t.textMuted,
-    cursor:"pointer",fontFamily:"inherit",boxShadow:active?t.shadow:"none",
-    transition:"all .15s",whiteSpace:"nowrap",
-  });
+    cursor:"pointer",fontFamily:"inherit",boxShadow:active?t.shadow:"none",transition:"all .15s",whiteSpace:"nowrap"});
 
   if(!sessions.length) return(
     <div style={{...card,textAlign:"center",padding:"48px 20px"}}>
@@ -821,10 +983,48 @@ function AnalysisPage({sessions,t}){
         ))}
       </div>
 
-      {/* Foods / Symptoms sub-tabs */}
+      {/* ── KEY INSIGHT CARDS — top of page ── */}
+      {(tolerateWell.length>0||doesNotTolerate.length>0)&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+          {tolerateWell.length>0&&(
+            <div style={{background:t.greenSoft,borderRadius:14,padding:"12px",
+              border:`1.5px solid ${t.greenBorder}`,boxShadow:t.shadow}}>
+              <div style={{fontSize:11,fontWeight:700,color:t.greenText,textTransform:"uppercase",
+                letterSpacing:"0.06em",marginBottom:8}}>✅ Feel good after</div>
+              <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                {tolerateWell.slice(0,5).map(f=>(
+                  <div key={f.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:12,fontWeight:600,color:t.greenText,
+                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"75%"}}>{f.name}</span>
+                    <span style={{fontSize:11,color:t.green,fontWeight:700,flexShrink:0}}>{f.avg}★</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {doesNotTolerate.length>0&&(
+            <div style={{background:t.redSoft,borderRadius:14,padding:"12px",
+              border:`1.5px solid ${t.redBorder}`,boxShadow:t.shadow}}>
+              <div style={{fontSize:11,fontWeight:700,color:t.redText,textTransform:"uppercase",
+                letterSpacing:"0.06em",marginBottom:8}}>❌ Feel bad after</div>
+              <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                {doesNotTolerate.slice(0,5).map(f=>(
+                  <div key={f.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:12,fontWeight:600,color:t.redText,
+                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"75%"}}>{f.name}</span>
+                    <span style={{fontSize:11,color:t.red,fontWeight:700,flexShrink:0}}>{f.avg}★</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Sub-tabs */}
       <div style={{display:"flex",background:t.surface2,borderRadius:10,padding:3,marginBottom:12,border:`1px solid ${t.border}`}}>
-        {[{id:"foods",label:"🥗 Foods"},{id:"symptoms",label:"🩺 Symptoms"}].map(({id,label})=>(
-          <button key={id} onClick={()=>setView(id)} style={{...seg(view===id),fontSize:12,padding:"7px"}}>{label}</button>
+        {[{id:"foods",label:"🥗 Foods"},{id:"timeline",label:"📅 Timeline"},{id:"symptoms",label:"🩺 Symptoms"}].map(({id,label})=>(
+          <button key={id} onClick={()=>setView(id)} style={{...seg(view===id),fontSize:11,padding:"7px 4px"}}>{label}</button>
         ))}
       </div>
 
@@ -885,37 +1085,33 @@ function AnalysisPage({sessions,t}){
             </table>
           </div>
         </div>
-        {foodStats.filter(f=>f.avg>=4&&f.count>=2).length>0&&(
-          <div style={{...card,borderLeft:`3px solid ${t.green}`}}>
-            <div style={{...sec,color:t.green}}>✅ Foods you tolerate well</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-              {foodStats.filter(f=>f.avg>=4&&f.count>=2).sort((a,b)=>b.avg-a.avg).map(f=>(
-                <div key={f.name} style={{background:t.greenSoft,border:`1px solid ${t.greenBorder}`,borderRadius:20,
-                  padding:"4px 12px",fontSize:12,color:t.greenText,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
-                  {f.name} <span>{f.avg}★</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {foodStats.filter(f=>f.avg<3&&f.count>=2).length>0&&(
-          <div style={{...card,borderLeft:`3px solid ${t.red}`}}>
-            <div style={{...sec,color:t.red}}>❌ Foods you do not tolerate well</div>
-            <p style={{fontSize:12,color:t.textMuted,marginBottom:10}}>
-              You've felt bad after eating these multiple times.
-            </p>
-            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-              {foodStats.filter(f=>f.avg<3&&f.count>=2).sort((a,b)=>a.avg-b.avg).map(f=>(
-                <div key={f.name} style={{background:t.redSoft,border:`1px solid ${t.redBorder}`,borderRadius:20,
-                  padding:"4px 12px",fontSize:12,color:t.redText,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
-                  {f.name} <span>{f.avg}★</span>
-                  <span style={{fontSize:10,fontWeight:400,color:t.textMuted}}>{f.count} meals</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </>)}
+
+      {view==="timeline"&&(
+        <div style={card}>
+          <div style={sec}>Weekly feeling score</div>
+          <div style={{fontSize:11,color:t.textMuted,marginBottom:12}}>Average rating per week · higher = feeling better</div>
+          {weekData.length<2?(
+            <div style={{textAlign:"center",padding:"24px 0",color:t.textMuted,fontSize:13}}>
+              Not enough data yet — keep logging and rating meals to see your trend.
+            </div>
+          ):(
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={weekData} margin={{left:0,right:8,top:8,bottom:0}}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={t.border}/>
+                <XAxis dataKey="label" tick={{fontSize:10,fill:t.textMuted}} axisLine={false} tickLine={false}/>
+                <YAxis domain={[0,5]} tickCount={6} tick={{fontSize:10,fill:t.textMuted}} axisLine={false} tickLine={false}/>
+                <Tooltip
+                  contentStyle={{background:t.surface,border:`1px solid ${t.border}`,borderRadius:8,fontSize:12,color:t.text}}
+                  formatter={(v,n,p)=>[`${v}★ avg (${p.payload.count} meal${p.payload.count!==1?"s":""})`, "Feeling"]}/>
+                <Bar dataKey="avg" radius={[6,6,0,0]}>
+                  {weekData.map((w,i)=><Cell key={i} fill={ratingColor(w.avg,t)}/>)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      )}
 
       {view==="symptoms"&&(<>
         {symChart.length>0&&(
