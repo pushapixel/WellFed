@@ -237,9 +237,8 @@ app.post("/meals", requireAuth, async (req, res) => {
 
 app.patch("/meals/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
-  const { rating, symptoms = [] } = req.body;
+  const { rating, symptoms = [], foods } = req.body;
 
-  // Confirm this meal belongs to the requesting user
   const { rows: [owned] } = await q(
     "SELECT id FROM meals WHERE id = $1 AND user_id = $2",
     [id, req.user.id]
@@ -252,6 +251,22 @@ app.patch("/meals/:id", requireAuth, async (req, res) => {
 
     if (rating !== undefined) {
       await dbClient.query("UPDATE meals SET rating = $1 WHERE id = $2", [rating, id]);
+    }
+
+    // Optionally update foods (used by "add to last meal")
+    if (foods && foods.length > 0) {
+      await dbClient.query("DELETE FROM meal_foods WHERE meal_id = $1", [id]);
+      for (const name of foods) {
+        const { rows: [food] } = await dbClient.query(
+          `INSERT INTO foods (user_id, name) VALUES ($1, $2)
+           ON CONFLICT (user_id, name) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+          [req.user.id, name.trim()]
+        );
+        await dbClient.query(
+          `INSERT INTO meal_foods (meal_id, food_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [id, food.id]
+        );
+      }
     }
 
     await dbClient.query("DELETE FROM meal_symptoms WHERE meal_id = $1", [id]);
