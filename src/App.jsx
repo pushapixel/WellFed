@@ -10,7 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 // API is same-origin (Railway serves both frontend and API), so no base URL needed.
 // Just replace GOOGLE_CLIENT_ID with yours from Google Cloud Console.
 const API              = "";
-const GOOGLE_CLIENT_ID = "168274465421-7rj5j39seagomfan2jh3lq655ft52cib.apps.googleusercontent.com"; // ← replace this
+const GOOGLE_CLIENT_ID = "YOUR_CLIENT_ID.apps.googleusercontent.com"; // ← replace this
 
 // ── Session token management ──────────────────────────────────────────────────
 // On first Google sign-in, the API returns a 30-day session token.
@@ -595,7 +595,7 @@ function SuggestionModal({onSubmit,onClose,t}){
 // ── Onboarding ────────────────────────────────────────────────────────────────
 const ONBOARDING_KEY="wf:onboarded";
 const STEPS=[
-  {icon:"🍽️",title:"Log what you eat",body:"After a meal, tap the food input and add each item you ate. Hit "Log meal" when done."},
+  {icon:"🍽️",title:"Log what you eat",body:"After a meal, tap the food input and add each item you ate. Hit \"Log meal\" when done."},
   {icon:"⭐",title:"Rate how you feel",body:"Come back 30–60 minutes later and tap the stars on your meal card to rate how you're feeling."},
   {icon:"📊",title:"Discover patterns",body:"Over time the Analysis page reveals which foods make you feel great — and which ones don't."},
 ];
