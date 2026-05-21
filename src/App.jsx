@@ -1471,7 +1471,7 @@ export default function App(){
   },[]);
 
   const updateMeal=useCallback(async updated=>{
-    const meal=await apiPatch(`/meals/${updated.id}`,{rating:updated.rating,symptoms:updated.symptoms});
+    const meal=await apiPatch(`/meals/${updated.id}`,{rating:updated.rating,symptoms:updated.symptoms,ts:updated.ts,foods:updated.foods});
     setSessions(prev=>prev.map(s=>s.id===meal.id?meal:s));
   },[]);
 
